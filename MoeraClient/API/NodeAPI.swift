@@ -1,6 +1,7 @@
 import Foundation
 
-/// Клиент к Moera Node API (`/moera/api/...`).
+/// Клиент к Moera Node API: https://<нода>/moera/api/...
+/// Сверено с документацией https://moera.org/development/ и python-moeralib.
 struct NodeAPI {
     let baseURL: URL
     let token: String?
@@ -10,7 +11,7 @@ struct NodeAPI {
     // MARK: Auth
 
     func createToken(login: String, password: String) async throws -> TokenInfo {
-        try await send("POST", "tokens", body: Credentials(login: login, password: password))
+        try await send("POST", "tokens", body: TokenAttributes(login: login, password: password), auth: false)
     }
 
     // MARK: Profile
@@ -35,7 +36,7 @@ struct NodeAPI {
     }
 
     func createPosting(text: String) async throws -> Posting {
-        try await send("POST", "postings", body: PostingText(bodySrc: BodySrc(text: text), bodySrcFormat: "markdown"))
+        try await send("POST", "postings", body: PostingText(bodySrc: Body(text: text), bodySrcFormat: "markdown"))
     }
 
     // MARK: Comments
@@ -48,7 +49,7 @@ struct NodeAPI {
 
     func createComment(postingId: String, text: String) async throws -> CommentCreated {
         try await send("POST", "postings/\(postingId)/comments",
-                       body: CommentText(bodySrc: BodySrc(text: text), bodySrcFormat: "markdown"))
+                       body: CommentText(bodySrc: Body(text: text), bodySrcFormat: "markdown"))
     }
 
     // MARK: Reactions
@@ -66,14 +67,16 @@ struct NodeAPI {
     }
 
     private func send<T: Decodable, B: Encodable>(_ method: String, _ path: String,
-                                                  query: [URLQueryItem] = [], body: B?) async throws -> T {
+                                                  query: [URLQueryItem] = [], body: B?,
+                                                  auth: Bool = true) async throws -> T {
         var components = URLComponents(url: baseURL.appending(path: "moera/api/\(path)"),
                                        resolvingAgainstBaseURL: false)!
         if !query.isEmpty { components.queryItems = query }
         var request = URLRequest(url: components.url!)
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
-        if let token { request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization") }
+        // Формат из документации: "Bearer token:<admin token>" (для чужих нод будет "carte:<carte>").
+        if auth, let token { request.setValue("Bearer token:\(token)", forHTTPHeaderField: "Authorization") }
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")
             request.httpBody = try JSONEncoder().encode(body)

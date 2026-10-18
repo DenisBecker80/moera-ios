@@ -2,9 +2,10 @@ import Foundation
 
 // Модели Moera Node API. Только нужные клиенту поля, остальное игнорируется.
 
-struct Credentials: Encodable { let login: String; let password: String }
-struct TokenInfo: Decodable { let token: String }
-struct APIFailure: Decodable { let errorCode: String?; let message: String? }
+struct TokenAttributes: Encodable { let login: String; let password: String }
+struct TokenInfo: Decodable { let id: String; let token: String }
+/// Структура Result: при ошибке нода возвращает её с соответствующим HTTP-статусом.
+struct APIFailure: Decodable { let errorCode: String; let message: String? }
 
 struct Profile: Decodable {
     let fullName: String?
@@ -12,12 +13,39 @@ struct Profile: Decodable {
     let bioHtml: String?
 }
 
+/// В API тело (body, bodySrc) передаётся строкой с JSON внутри: "{\"text\":\"...\"}".
+/// Исключение: формат "application", там строка и есть текст.
 struct Body: Codable, Hashable {
-    let subject: String?
-    let text: String?
-}
+    var subject: String?
+    var text: String?
 
-struct BodySrc: Encodable { let text: String }
+    init(subject: String? = nil, text: String?) {
+        self.subject = subject
+        self.text = text
+    }
+
+    private enum Keys: String, CodingKey { case subject, text }
+
+    init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        if let data = raw.data(using: .utf8),
+           let inner = try? JSONDecoder().decode(Inner.self, from: data) {
+            subject = inner.subject
+            text = inner.text
+        } else {
+            subject = nil
+            text = raw
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        let data = try JSONEncoder().encode(Inner(subject: subject, text: text))
+        var container = encoder.singleValueContainer()
+        try container.encode(String(decoding: data, as: UTF8.self))
+    }
+
+    private struct Inner: Codable { let subject: String?; let text: String? }
+}
 
 struct ReactionTotal: Decodable, Hashable {
     let emoji: Int
@@ -40,6 +68,9 @@ struct Posting: Decodable, Identifiable, Hashable {
     let id: String
     let ownerName: String
     let ownerFullName: String?
+    /// Если пост — копия чужого: нода и id оригинала (комментарии и реакции живут там).
+    let receiverName: String?
+    let receiverPostingId: String?
     let body: Body
     let createdAt: Int64
     let totalComments: Int?
@@ -52,6 +83,7 @@ struct Posting: Decodable, Identifiable, Hashable {
 
 struct Story: Decodable, Identifiable, Hashable {
     let id: String
+    let feedName: String
     let storyType: String
     let moment: Int64
     let posting: Posting?
@@ -61,6 +93,8 @@ struct FeedSlice: Decodable {
     let before: Int64
     let after: Int64
     let stories: [Story]
+    let totalInPast: Int
+    let totalInFuture: Int
 }
 
 struct Comment: Decodable, Identifiable, Hashable {
@@ -79,11 +113,12 @@ struct CommentsSlice: Decodable {
     let before: Int64
     let after: Int64
     let comments: [Comment]
+    let total: Int
 }
 
-struct PostingText: Encodable { let bodySrc: BodySrc; let bodySrcFormat: String }
-struct CommentText: Encodable { let bodySrc: BodySrc; let bodySrcFormat: String }
-struct CommentCreated: Decodable { let comment: Comment }
+struct PostingText: Encodable { let bodySrc: Body; let bodySrcFormat: String }
+struct CommentText: Encodable { let bodySrc: Body; let bodySrcFormat: String }
+struct CommentCreated: Decodable { let comment: Comment; let total: Int }
 struct ReactionDescription: Encodable { let negative: Bool; let emoji: Int }
 struct ReactionCreated: Decodable { let totals: ReactionTotals? }
 
