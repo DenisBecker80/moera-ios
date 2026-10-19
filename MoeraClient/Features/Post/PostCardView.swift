@@ -16,6 +16,7 @@ struct PostCardView: View {
             }
             if let subject = posting.body.subject { Text(subject).font(.title3.bold()) }
             if let text = posting.body.text { HTMLText(html: text) }
+            if let media = posting.media { MediaGridView(attachments: media) }
 
             HStack {
                 if let count = posting.reactions?.positiveCount, count > 0 {
@@ -24,6 +25,9 @@ struct PostCardView: View {
                 Spacer()
                 if let comments = posting.totalComments, comments > 0 {
                     Text("Комментарии: \(comments)")
+                }
+                if let views = posting.viewCount {
+                    Label("\(views)", systemImage: "eye")
                 }
             }
             .font(.caption).foregroundStyle(.secondary)

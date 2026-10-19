@@ -76,6 +76,7 @@ struct NodeAPI {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         // Формат из документации: "Bearer token:<admin token>" (для чужих нод будет "carte:<carte>").
+        request.setValue(ClientID.header, forHTTPHeaderField: "Client-ID")
         if auth, let token { request.setValue("Bearer token:\(token)", forHTTPHeaderField: "Authorization") }
         if let body {
             request.setValue("application/json", forHTTPHeaderField: "Content-Type")

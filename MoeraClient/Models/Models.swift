@@ -74,6 +74,9 @@ struct Posting: Decodable, Identifiable, Hashable {
     let body: Body
     let createdAt: Int64
     let totalComments: Int?
+    /// Примерное число просмотров, видно владельцу (с Moera 0.19).
+    let viewCount: Int?
+    let media: [MediaAttachment]?
     let reactions: ReactionTotals?
     let clientReaction: ClientReaction?
 
@@ -104,6 +107,9 @@ struct Comment: Decodable, Identifiable, Hashable {
     let body: Body
     let createdAt: Int64
     let moment: Int64
+    /// Комментарий ждёт одобрения автора (премодерация, анонимные комментарии с 0.19).
+    let premoderating: Bool?
+    let media: [MediaAttachment]?
 
     var authorDisplayName: String { ownerFullName ?? ownerName }
     var date: Date { Date(timeIntervalSince1970: TimeInterval(createdAt)) }
@@ -127,4 +133,39 @@ enum Reaction: Int, CaseIterable {
     case like = 0x1f44d, love = 0x2764, haha = 0x1f600, wow = 0x1f62e, sad = 0x1f622, angry = 0x1f620
 
     var symbol: String { String(UnicodeScalar(rawValue).map(Character.init) ?? "👍") }
+}
+
+// MARK: Медиа (видео, файлы любых типов, сжатие на сервере — Moera 0.19)
+
+struct MediaAttachment: Decodable, Hashable {
+    let media: MediaFile?
+    let embedded: Bool
+}
+
+struct MediaFile: Decodable, Hashable, Identifiable {
+    let id: String
+    let path: String
+    /// Подписанная прямая ссылка (presigned URL, напр. на S3), живёт ограниченное время.
+    let directPath: String?
+    let mimeType: String
+    let width: Int?
+    let height: Int?
+    let size: Int
+    let duration: Double?
+    let title: String?
+    /// true — показывать как вложение-файл, а не как картинку/видео.
+    let attachment: Bool?
+    /// Файл в списке вредоносных (Security Guard).
+    let malware: Bool?
+
+    var isImage: Bool { mimeType.hasPrefix("image/") && attachment != true }
+    var isVideo: Bool { mimeType.hasPrefix("video/") && attachment != true }
+
+    /// Адрес файла на ноде. TODO: проверить формат на живой ноде.
+    func url(node: URL) -> URL? {
+        if let directPath {
+            return URL(string: directPath, relativeTo: node)?.absoluteURL
+        }
+        return node.appending(path: "moera/media/\(path)")
+    }
 }

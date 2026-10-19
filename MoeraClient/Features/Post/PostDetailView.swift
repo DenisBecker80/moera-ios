@@ -16,6 +16,10 @@ struct PostDetailView: View {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(comment.authorDisplayName).font(.subheadline.bold())
                             if let text = comment.body.text { HTMLText(html: text) }
+                            if let media = comment.media { MediaGridView(attachments: media) }
+                            if comment.premoderating == true {
+                                Text("На модерации").font(.caption2).foregroundStyle(.orange)
+                            }
                             Text(comment.date, style: .relative).font(.caption2).foregroundStyle(.secondary)
                         }
                         .padding(10)
