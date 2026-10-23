@@ -6,6 +6,20 @@ struct NodeAPI {
     let baseURL: URL
     let token: String?
 
+    init(baseURL: URL, token: String?) {
+        self.baseURL = NodeAPI.root(of: baseURL)
+        self.token = token
+    }
+
+    /// Адрес ноды без хвостов "/moera" и "/moera/api" (сервер имён отдаёт адрес с "/moera").
+    static func root(of url: URL) -> URL {
+        var s = url.absoluteString
+        if !s.hasPrefix("http") { s = "https://" + s }
+        while s.hasSuffix("/") { s.removeLast() }
+        for suffix in ["/api", "/moera"] where s.hasSuffix(suffix) { s.removeLast(suffix.count) }
+        return URL(string: s) ?? url
+    }
+
     private var decoder: JSONDecoder { JSONDecoder() }
 
     // MARK: Auth
