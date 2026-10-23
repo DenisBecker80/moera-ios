@@ -102,7 +102,11 @@ struct NodeAPI {
             let failure = try? decoder.decode(APIFailure.self, from: data)
             throw APIError.server(status: http.statusCode, message: failure?.message)
         }
-        return try decoder.decode(T.self, from: data)
+        do {
+            return try decoder.decode(T.self, from: data)
+        } catch let error as DecodingError {
+            throw APIError.decoding(path: path, details: error.readable)
+        }
     }
 }
 
@@ -111,11 +115,33 @@ private struct Empty: Codable {}
 enum APIError: LocalizedError {
     case badResponse
     case server(status: Int, message: String?)
+    case decoding(path: String, details: String)
 
     var errorDescription: String? {
         switch self {
         case .badResponse: "Некорректный ответ сервера"
         case let .server(status, message): message ?? "Ошибка сервера (\(status))"
+        case let .decoding(path, details): "Не удалось разобрать ответ \(path): \(details)"
         }
+    }
+}
+
+extension DecodingError {
+    var readable: String {
+        func where_(_ c: Context) -> String { c.codingPath.map(\.stringValue).joined(separator: ".") }
+        switch self {
+        case let .keyNotFound(key, c): return "нет поля \(key.stringValue) в \(where_(c))"
+        case let .typeMismatch(_, c): return "неверный тип в \(where_(c))"
+        case let .valueNotFound(_, c): return "пустое значение в \(where_(c))"
+        case let .dataCorrupted(c): return "повреждённые данные в \(where_(c))"
+        @unknown default: return localizedDescription
+        }
+    }
+}
+
+extension Error {
+    /// Отмена запроса (экран закрылся или перерисовался) — это не ошибка для пользователя.
+    var isCancellation: Bool {
+        self is CancellationError || (self as? URLError)?.code == .cancelled
     }
 }

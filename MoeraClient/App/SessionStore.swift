@@ -1,10 +1,13 @@
 import Foundation
 import Observation
 
+@MainActor
 @Observable
 final class SessionStore {
     private(set) var nodeURL: URL?
     private(set) var token: String?
+    /// Имя, под которым вошли (например, "DenisBecker").
+    private(set) var nodeName: String?
 
     var isSignedIn: Bool { nodeURL != nil && token != nil }
 
@@ -17,6 +20,7 @@ final class SessionStore {
         if let url = UserDefaults.standard.url(forKey: "nodeURL") {
             nodeURL = url
             token = Keychain.read("token")
+            nodeName = UserDefaults.standard.string(forKey: "nodeName")
         }
     }
 
@@ -38,6 +42,8 @@ final class SessionStore {
         let result = try await api.createToken(login: login, password: password)
         Keychain.save("token", result.token)
         UserDefaults.standard.set(nodeURL, forKey: "nodeURL")
+        UserDefaults.standard.set(trimmed, forKey: "nodeName")
+        self.nodeName = trimmed
         self.nodeURL = nodeURL
         self.token = result.token
     }
@@ -45,6 +51,8 @@ final class SessionStore {
     func signOut() {
         Keychain.delete("token")
         UserDefaults.standard.removeObject(forKey: "nodeURL")
+        UserDefaults.standard.removeObject(forKey: "nodeName")
+        nodeName = nil
         nodeURL = nil
         token = nil
     }

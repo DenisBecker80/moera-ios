@@ -11,6 +11,41 @@ struct Profile: Decodable {
     let fullName: String?
     let title: String?
     let bioHtml: String?
+    let avatar: Avatar?
+}
+
+struct Avatar: Decodable, Hashable {
+    let path: String
+    let directPath: String?
+
+    func url(node: URL) -> URL? {
+        if let directPath { return URL(string: directPath, relativeTo: node)?.absoluteURL }
+        return node.appending(path: "moera/media/\(path)")
+    }
+}
+
+/// Массив, в котором нераспознанные элементы пропускаются, а не ломают весь ответ.
+struct Lossy<Element: Decodable>: Decodable {
+    let items: [Element]
+    let failures: Int
+
+    init(from decoder: Decoder) throws {
+        var container = try decoder.unkeyedContainer()
+        var items: [Element] = []
+        var failures = 0
+        while !container.isAtEnd {
+            if let item = try? container.decode(Element.self) {
+                items.append(item)
+            } else {
+                _ = try? container.decode(Skip.self)
+                failures += 1
+            }
+        }
+        self.items = items
+        self.failures = failures
+    }
+
+    private struct Skip: Decodable {}
 }
 
 /// В API тело (body, bodySrc) передаётся строкой с JSON внутри: "{\"text\":\"...\"}".
@@ -96,8 +131,19 @@ struct FeedSlice: Decodable {
     let before: Int64
     let after: Int64
     let stories: [Story]
-    let totalInPast: Int
-    let totalInFuture: Int
+    let totalInPast: Int?
+    let totalInFuture: Int?
+
+    private enum CodingKeys: String, CodingKey { case before, after, stories, totalInPast, totalInFuture }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        before = try c.decode(Int64.self, forKey: .before)
+        after = try c.decode(Int64.self, forKey: .after)
+        stories = try c.decode(Lossy<Story>.self, forKey: .stories).items
+        totalInPast = try c.decodeIfPresent(Int.self, forKey: .totalInPast)
+        totalInFuture = try c.decodeIfPresent(Int.self, forKey: .totalInFuture)
+    }
 }
 
 struct Comment: Decodable, Identifiable, Hashable {
