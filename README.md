@@ -2,13 +2,13 @@
 
 iOS-клиент для децентрализованной соцсети [Moera](https://moera.org) в стиле Facebook.
 
-## Сборка
+## Сборка (Xcode 16 или новее)
 
-```sh
-brew install xcodegen
-xcodegen generate
-open MoeraClient.xcodeproj
-```
+1. Скачать репозиторий: в Xcode **Integrate → Clone…** (или «Clone Git Repository» на стартовом экране) и вставить адрес репозитория.
+2. Открыть `MoeraClient.xcodeproj`.
+3. Сверху выбрать симулятор (например, iPhone 16) и нажать **Run** (▶).
+
+Для запуска на своём iPhone: в настройках цели MoeraClient → **Signing & Capabilities** выбрать свою команду (Apple ID).
 
 ## Структура
 
